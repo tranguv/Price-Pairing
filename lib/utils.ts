@@ -1,5 +1,7 @@
 import { Cheerio, Element } from "cheerio";
-
+import { PriceHistoryItem, Product } from "@/types";
+import { Notification } from "@/lib/nodemailer"
+import { THRESHOLD_PERCENTAGE } from "@/lib/nodemailer";
 export async function extractPrice(...elements: Cheerio<Element>[]) {
     for (const element of elements) {
         // console.log("e ", element);
@@ -49,12 +51,10 @@ export async function extractCurrency(element: Cheerio<Element>) {
 }
 
 export async function extractDiscountRate(elements: Cheerio<Element>) {
-    console.log("b4 ", elements.text())
     const discountRateText = elements.text().split("-")[1]
     if (discountRateText) {
         discountRateText.replace(/[-%]/g, "");
     }
-    console.log("after prep", discountRateText)
     return discountRateText ? discountRateText : '';
 }
 
@@ -91,3 +91,68 @@ export function extractDescription($: any) {
         }
     }
 }
+
+export async function findLowestPrice(priceHistory: PriceHistoryItem[]) {
+    if (priceHistory.length == 0) {
+        return -1;
+    }
+
+    let lowestPrice = priceHistory[0];
+
+    for (const priceItem of priceHistory) {
+        if (priceItem.price < lowestPrice.price) {
+            lowestPrice.price = priceItem.price;
+        }
+    }
+
+    return lowestPrice.price
+}
+
+export async function findHighestPrice(priceHistory: PriceHistoryItem[]) {
+    if (priceHistory.length == 0) {
+        return -1;
+    }
+
+    let highestPrice = priceHistory[0];
+
+    for (const priceItem of priceHistory) {
+        if (priceItem.price > highestPrice.price) {
+            highestPrice.price = priceItem.price;
+        }
+    }
+
+    return highestPrice.price
+}
+
+export function getAveragePrice(priceList: PriceHistoryItem[]) {
+    const sumOfPrices = priceList.reduce((acc, curr) => acc + curr.price, 0);
+    const averagePrice = sumOfPrices / priceList.length || 0;
+
+    return averagePrice;
+}
+
+export const formatNumber = (num: number = 0) => {
+    return num.toLocaleString(undefined, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    });
+};
+
+export const getEmailNotifType = async (
+    scrapedProduct: Product,
+    currentProduct: Product
+) => {
+    const lowestPrice = await findLowestPrice(currentProduct.priceHistory);
+
+    if (scrapedProduct.currentPrice < lowestPrice) {
+        return Notification.LOWEST_PRICE as keyof typeof Notification;
+    }
+    if (!scrapedProduct.isOutOfStock && currentProduct.isOutOfStock) {
+        return Notification.CHANGE_OF_STOCK as keyof typeof Notification;
+    }
+    if (scrapedProduct.discountRate >= THRESHOLD_PERCENTAGE) {
+        return Notification.THRESHOLD_MET as keyof typeof Notification;
+    }
+
+    return null;
+};
