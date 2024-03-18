@@ -1,7 +1,5 @@
 import { Cheerio, Element } from "cheerio";
 import { PriceHistoryItem, Product } from "@/types";
-import { Notification } from "@/lib/nodemailer"
-import { THRESHOLD_PERCENTAGE } from "@/lib/nodemailer";
 export async function extractPrice(...elements: Cheerio<Element>[]) {
     for (const element of elements) {
         // console.log("e ", element);
@@ -137,6 +135,15 @@ export const formatNumber = (num: number = 0) => {
         maximumFractionDigits: 0,
     });
 };
+
+const Notification = {
+    WELCOME: 'WELCOME',
+    CHANGE_OF_STOCK: 'CHANGE_OF_STOCK',
+    LOWEST_PRICE: 'LOWEST_PRICE',
+    THRESHOLD_MET: 'THRESHOLD_MET',
+}
+
+const THRESHOLD_PERCENTAGE = 40;
 
 export const getEmailNotifType = async (
     scrapedProduct: Product,
